@@ -39,12 +39,14 @@ import ffc.android.setTransition
 import ffc.android.viewModel
 import ffc.app.FamilyFolderActivity
 import ffc.app.R
+import ffc.app.auth.auth
 import ffc.app.health.analyze.HealthIssueFragment
 import ffc.app.health.service.HealthCareServicesFragment
 import ffc.app.health.service.community.HomeVisitActivity
 import ffc.app.isDev
 import ffc.app.location.HouseActivity
 import ffc.app.person.genogram.GenogramActivity
+import ffc.app.person.genogram.personPopupActivity
 import ffc.app.photo.PhotoType
 import ffc.app.photo.REQUEST_TAKE_PHOTO
 import ffc.app.photo.startAvatarPhotoActivity
@@ -53,16 +55,10 @@ import ffc.app.util.Analytics
 import ffc.app.util.alert.handle
 import ffc.app.util.alert.toast
 import ffc.entity.Person
+import ffc.entity.User
 import ffc.entity.place.House
 import ffc.entity.update
-import kotlinx.android.synthetic.main.activity_person.ageView
-import kotlinx.android.synthetic.main.activity_person.avatarView
-import kotlinx.android.synthetic.main.activity_person.deadLabelView
-import kotlinx.android.synthetic.main.activity_person.genogramButton
-import kotlinx.android.synthetic.main.activity_person.homeAsUp
-import kotlinx.android.synthetic.main.activity_person.nameView
-import kotlinx.android.synthetic.main.activity_person.toolbarImage
-import kotlinx.android.synthetic.main.activity_person.visitButton
+import kotlinx.android.synthetic.main.activity_person.*
 import org.jetbrains.anko.bundleOf
 import org.jetbrains.anko.intentFor
 import org.jetbrains.anko.startActivity
@@ -77,7 +73,7 @@ class PersonActivitiy : FamilyFolderActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_person)
-
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
         setTransition {
             enterTransition = Slide(Gravity.END).enter()
             returnTransition = Slide(Gravity.END).exit()
@@ -116,6 +112,17 @@ class PersonActivitiy : FamilyFolderActivity() {
         observe(viewModel.exception) {
             it?.let { handle(it) }
         }
+        var user = auth(this).user
+        if (user!!.roles[0] == User.Role.SURVEYOR ) {
+            btnInfo.visibility = View.GONE
+        }
+        btnInfo.onClick {
+
+            var intent = Intent(this, personPopupActivity::class.java)
+            //intent.putExtra("id", id)
+            intent.putExtra("personId", personId)
+            startActivity(intent)
+        }
     }
 
     override fun onResume() {
@@ -151,15 +158,17 @@ class PersonActivitiy : FamilyFolderActivity() {
                 relationshipFragment.person = this
                 fragmentAdd.put("relationship", relationshipFragment)
             }
-
-            val issueFragment = HealthIssueFragment()
-            issueFragment.person = this
-            fragmentAdd.put("Issue", issueFragment)
-
-            val serviceFragment = HealthCareServicesFragment()
-            serviceFragment.arguments = bundleOf("personId" to personId)
-            fragmentAdd.put("service", serviceFragment)
-
+            val user = auth(applicationContext).user!!
+            if (user.roles.size>0) {
+                if (user.roles[0] != User.Role.SURVEYOR) {
+                    val issueFragment = HealthIssueFragment()
+                    issueFragment.person = this
+                    fragmentAdd.put("Issue", issueFragment)
+                    val serviceFragment = HealthCareServicesFragment()
+                    serviceFragment.arguments = bundleOf("personId" to personId)
+                    fragmentAdd.put("service", serviceFragment)
+                }
+            }
             supportFragmentManager
                 .replaceAll(R.id.contentContainer, fragmentAdd)
                 .commit()
